@@ -1,6 +1,8 @@
-// Copyright 2016 github.com/kahoon, all rights reserved
-// Use of this source code is governed by a MIT style
-// license that can be found in the LICENSE file.
+// A simple extension to the golang database/sql package that facilitates getting
+// row columns by name. The goal is to keep the existing sql package interface
+// intact, yet allow the use of additional methods to satisfy the added functionality.
+// This allows a seamless swap of the database/sql package with this one. Methods not list
+// are directly inherited from database/sql
 package ksql
 
 import (
@@ -12,12 +14,14 @@ import (
 	"time"
 )
 
+// Global pool of open databases to save from having to keep pointer references
 var (
-	// Global pool of open databases to save from having to keep pointer references
 	poolMu sync.RWMutex
 	pool   map[string]*DB
+)
 
-	// Errors
+// Errors
+var (
 	ErrNoRows                      = sql.ErrNoRows
 	ErrDupConnName                 = errors.New("ksql: duplicate database connection name")
 	ErrColumnNotFound              = errors.New("ksql: column not found in result")
@@ -28,7 +32,7 @@ func init() {
 	pool = make(map[string]*DB)
 }
 
-// Get the list of open databases
+// Get list of names of open database connections
 func Databases() []string {
 	poolMu.RLock()
 	defer poolMu.RUnlock()
@@ -40,7 +44,7 @@ func Databases() []string {
 	return list
 }
 
-// Get a pointer to an open database by name
+// Get an open database connection by name
 func Get(name string) (*DB, bool) {
 	poolMu.RLock()
 	defer poolMu.RUnlock()
@@ -48,7 +52,7 @@ func Get(name string) (*DB, bool) {
 	return db, ok
 }
 
-// Open a new database and save the reference by name
+// Open a new database connection, and save the reference by name
 func New(name, driver, dsn string) (*DB, error) {
 	poolMu.Lock()
 	defer poolMu.Unlock()
@@ -64,7 +68,7 @@ func New(name, driver, dsn string) (*DB, error) {
 	return pool[name], nil
 }
 
-// Manage an already open datavase
+// Manage an already open database, and save the reference by name
 func NewWithDB(name string, db *sql.DB) (*DB, error) {
 	poolMu.Lock()
 	defer poolMu.Unlock()
@@ -76,7 +80,7 @@ func NewWithDB(name string, db *sql.DB) (*DB, error) {
 	return pool[name], nil
 }
 
-// Close all open databases
+// Close all open databases connections.
 func Close() {
 	poolMu.Lock()
 	defer poolMu.Unlock()
@@ -88,11 +92,12 @@ func Close() {
 	}
 }
 
-// extend sql.DB and a select number of it's methods methods
+// Inherit database/sql.DB
 type DB struct {
 	*sql.DB
 }
 
+// Close this database connection
 func (db *DB) Close() error {
 	poolMu.Lock()
 	defer poolMu.Unlock()
@@ -138,6 +143,7 @@ func (db *DB) QueryRow(query string, args ...interface{}) *Row {
 	return &Row{rows: rows, err: err}
 }
 
+// Inherit database/sql.Rows
 type Rows struct {
 	*sql.Rows
 	err     error
@@ -227,6 +233,7 @@ func convertToTime(value interface{}) (time.Time, error) {
 	return time.Time{}, ErrInvalidColumnTypeConversion
 }
 
+// Get the boolean value in this row by column name
 func (rs *Rows) GetBoolean(column string) (bool, error) {
 	value, ok := rs.values[column].(bool)
 	if !ok {
@@ -235,6 +242,7 @@ func (rs *Rows) GetBoolean(column string) (bool, error) {
 	return value, nil
 }
 
+// Get the integer  value in this row by column name
 func (rs *Rows) GetInteger(column string) (int64, error) {
 	if err := validateRows(rs, column); err != nil {
 		return 0, err
@@ -246,6 +254,7 @@ func (rs *Rows) GetInteger(column string) (int64, error) {
 	return value, nil
 }
 
+// Get the float value in this row by column name
 func (rs *Rows) GetDouble(column string) (float64, error) {
 	if err := validateRows(rs, column); err != nil {
 		return 0, err
@@ -257,6 +266,7 @@ func (rs *Rows) GetDouble(column string) (float64, error) {
 	return value, nil
 }
 
+// Get the string value in this row by column name
 func (rs *Rows) GetString(column string) (string, error) {
 	if err := validateRows(rs, column); err != nil {
 		return "", err
@@ -268,6 +278,7 @@ func (rs *Rows) GetString(column string) (string, error) {
 	return value, nil
 }
 
+// Get the time.Time value in this row by column name
 func (rs *Rows) GetTime(column string) (time.Time, error) {
 	if err := validateRows(rs, column); err != nil {
 		return time.Time{}, err
@@ -324,6 +335,7 @@ func next(r *Row) error {
 	return nil
 }
 
+// Get the boolean value in this row by column name
 func (r *Row) GetBoolean(column string) (bool, error) {
 	if err := next(r); err != nil {
 		return false, err
@@ -331,6 +343,7 @@ func (r *Row) GetBoolean(column string) (bool, error) {
 	return r.rows.GetBoolean(column)
 }
 
+// Get the integer value in this row by column name
 func (r *Row) GetInteger(column string) (int64, error) {
 	if err := next(r); err != nil {
 		return 0, err
@@ -338,6 +351,7 @@ func (r *Row) GetInteger(column string) (int64, error) {
 	return r.rows.GetInteger(column)
 }
 
+// Get the float value in this row by column name
 func (r *Row) GetDouble(column string) (float64, error) {
 	if err := next(r); err != nil {
 		return 0, err
@@ -345,6 +359,7 @@ func (r *Row) GetDouble(column string) (float64, error) {
 	return r.rows.GetDouble(column)
 }
 
+// Get the string value in this row by column name
 func (r *Row) GetString(column string) (string, error) {
 	if err := next(r); err != nil {
 		return "", err
@@ -352,6 +367,7 @@ func (r *Row) GetString(column string) (string, error) {
 	return r.rows.GetString(column)
 }
 
+// Get the time.Time value in this row by column name
 func (r *Row) GetTime(column string) (time.Time, error) {
 	if err := next(r); err != nil {
 		return time.Time{}, err
