@@ -1,5 +1,6 @@
 # ksql
 
+[![GoDoc](https://godoc.org/github.com/kahoon/ksql?status.png)](https://godoc.org/github.com/kahoon/ksql)
 [![Build Status](https://travis-ci.org/kahoon/ksql.svg?branch=master)](https://travis-ci.org/kahoon/ksql) [![license](http://img.shields.io/badge/license-MIT-red.svg?style=flat)](https://raw.githubusercontent.com/kahoon/ksql/master/LICENSE)
 
 A simple extension to the golang database/sql package that facilitates getting row columns by name. The goal is to keep the existing sql package interface intact, yet allow the use of additional methods to satisfy the added functionality.  This allows a seamless swap of the database/sql package with this one.
