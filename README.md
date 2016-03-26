@@ -11,9 +11,6 @@ Feature highlights:
 * Support for queries with arbitrary number of result columns, get what you need.
 * Get the last row of results even after the `Rows` are closed.
 
-TODO:
-
-* Unit tests
 
 ## Install
 
